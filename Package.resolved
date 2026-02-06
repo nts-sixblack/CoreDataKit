@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftinjected",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nts-sixblack/SwiftInjected.git",
+      "state" : {
+        "revision" : "3b82eaff7ba403f6959e6c1cfba3e632d0b44476",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 2
+}

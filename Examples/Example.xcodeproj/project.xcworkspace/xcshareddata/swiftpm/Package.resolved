@@ -1,0 +1,24 @@
+{
+  "originHash" : "e6b11c4fb5e72e1d43b2c6956a97d749a5f9b272b00d4428aee9149d528d4085",
+  "pins" : [
+    {
+      "identity" : "coredatakit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nts-sixblack/CoreDataKit",
+      "state" : {
+        "revision" : "2e6b25517d86d1aefbd5ce016a3c80e4e741263d",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "swiftinjected",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nts-sixblack/SwiftInjected.git",
+      "state" : {
+        "revision" : "3b82eaff7ba403f6959e6c1cfba3e632d0b44476",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}
