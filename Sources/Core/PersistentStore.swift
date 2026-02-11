@@ -36,6 +36,16 @@ public protocol PersistentStore {
   /// - Parameter operation: A closure that performs the update on a background context.
   /// - Returns: A publisher that emits the operation result or an error.
   func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error>
+
+  /// Monitor changes to a fetch request.
+  /// - Parameters:
+  ///   - fetchRequest: The fetch request to monitor.
+  ///   - map: A closure that maps each fetched object to the desired type.
+  /// - Returns: A publisher that emits the mapped results and a boolean indicating if it's an update.
+  func monitor<T, V>(
+    _ fetchRequest: NSFetchRequest<T>,
+    map: @escaping (T) throws -> V?
+  ) -> AnyPublisher<([V], DataChange), Error>
 }
 
 // MARK: - PersistentStore Extension for Convenience Methods

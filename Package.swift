@@ -25,6 +25,10 @@ let package = Package(
       name: "CoreDataKit",
       dependencies: ["SwiftInjected"],
       path: "Sources"
-    )
+    ),
+    .testTarget(
+      name: "CoreDataKitTests",
+      dependencies: ["CoreDataKit"]
+    ),
   ]
 )

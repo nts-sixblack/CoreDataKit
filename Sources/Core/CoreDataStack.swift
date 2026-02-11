@@ -9,6 +9,16 @@ import Combine
 import CoreData
 import Foundation
 
+// MARK: - Data Change
+
+/// Describes the type of data change event.
+public enum DataChange {
+  /// The initial data load.
+  case initial
+  /// A subsequent update to the data.
+  case update
+}
+
 // MARK: - CoreDataConfiguration
 
 /// Configuration for setting up CoreDataStack.
@@ -60,10 +70,9 @@ public struct CoreDataConfiguration {
 
 // MARK: - CoreDataStack
 
-/// A modern CoreData stack implementation with Combine support.
 /// Provides thread-safe operations for fetching and updating data.
 public struct CoreDataStack: PersistentStore {
-  private let container: NSPersistentContainer
+  public let container: NSPersistentContainer
   private let isStoreLoaded = CurrentValueSubject<Bool, Error>(false)
   private let bgQueue = DispatchQueue(label: "com.lammatech.coredatakit.background")
 
@@ -196,6 +205,23 @@ public struct CoreDataStack: PersistentStore {
       .eraseToAnyPublisher()
   }
 
+  public func monitor<T, V>(
+    _ fetchRequest: NSFetchRequest<T>,
+    map: @escaping (T) throws -> V?
+  ) -> AnyPublisher<([V], DataChange), Error> {
+    onStoreIsReady
+      .flatMap { [weak container] in
+        guard let context = container?.viewContext else {
+          return Fail<([V], DataChange), Error>(error: CoreDataError.contextUnavailable)
+            .eraseToAnyPublisher()
+        }
+
+        return CoreDataPublisher(request: fetchRequest, context: context, map: map)
+          .eraseToAnyPublisher()
+      }
+      .eraseToAnyPublisher()
+  }
+
   // MARK: - Private
 
   private var onStoreIsReady: AnyPublisher<Void, Error> {
@@ -203,6 +229,91 @@ public struct CoreDataStack: PersistentStore {
       .filter { $0 }
       .map { _ in }
       .eraseToAnyPublisher()
+  }
+}
+
+// MARK: - CoreDataPublisher
+
+private struct CoreDataPublisher<T: NSFetchRequestResult, V>: Publisher {
+  typealias Output = ([V], DataChange)
+  typealias Failure = Error
+
+  let request: NSFetchRequest<T>
+  let context: NSManagedObjectContext
+  let map: (T) throws -> V?
+
+  func receive<S>(subscriber: S) where S: Subscriber, Failure == S.Failure, Output == S.Input {
+    let subscription = CoreDataSubscription(
+      subscriber: subscriber,
+      request: request,
+      context: context,
+      map: map
+    )
+    subscriber.receive(subscription: subscription)
+  }
+}
+
+private class CoreDataSubscription<S: Subscriber, T: NSFetchRequestResult, V>: NSObject,
+  Subscription, NSFetchedResultsControllerDelegate
+where S.Input == ([V], DataChange), S.Failure == Error {
+
+  private var subscriber: S?
+  private var controller: NSFetchedResultsController<T>?
+  private let map: (T) throws -> V?
+
+  init(
+    subscriber: S,
+    request: NSFetchRequest<T>,
+    context: NSManagedObjectContext,
+    map: @escaping (T) throws -> V?
+  ) {
+    self.subscriber = subscriber
+    self.map = map
+    super.init()
+
+    let controller = NSFetchedResultsController(
+      fetchRequest: request,
+      managedObjectContext: context,
+      sectionNameKeyPath: nil,
+      cacheName: nil
+    )
+    controller.delegate = self
+    self.controller = controller
+
+    do {
+      try controller.performFetch()
+      _ = sendUpdate(change: .initial)
+    } catch {
+      subscriber.receive(completion: .failure(error))
+    }
+  }
+
+  func request(_ demand: Subscribers.Demand) {
+    // We strictly observe changes, demand is mostly ignored as we push updates.
+  }
+
+  func cancel() {
+    subscriber = nil
+    controller = nil
+  }
+
+  func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+    _ = sendUpdate(change: .update)
+  }
+
+  private func sendUpdate(change: DataChange) -> Subscribers.Demand {
+    guard let subscriber = subscriber, let controller = controller else { return .none }
+
+    do {
+      let items = controller.fetchedObjects ?? []
+      let mappedItems = try items.compactMap { object in
+        try map(object)
+      }
+      return subscriber.receive((mappedItems, change))
+    } catch {
+      subscriber.receive(completion: .failure(error))
+      return .none
+    }
   }
 }
 

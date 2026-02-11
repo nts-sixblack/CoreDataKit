@@ -25,7 +25,7 @@ Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.0.0")
+    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.1.0")
 ]
 ```
 
@@ -320,6 +320,27 @@ class UserRepository: BaseRepository<User> {
     // - delete(_:) -> AnyPublisher<Void, Error>
     // - hasData() -> AnyPublisher<Bool, Error>
     // - getCount() -> AnyPublisher<Int, Error>
+    // - monitorAll() -> AnyPublisher<([Model], DataChange), Error>
+    // - monitorById(_:) -> AnyPublisher<([Model], DataChange), Error>
+}
+
+class UserListViewModel: ObservableObject {
+    func monitorUsers() {
+        userRepository.monitorAll()
+            .sink { _ in } receiveValue: { users, change in
+                switch change {
+                case .initial:
+                    // Handle initial load
+                    self.users = users
+                case .update:
+                    // Handle updates
+                    withAnimation {
+                        self.users = users
+                    }
+                }
+            }
+            .store(in: cancelBag)
+    }
 }
 ```
 

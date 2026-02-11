@@ -46,6 +46,15 @@ public protocol BaseRepositoryProtocol {
   ///   - page: The page number (0-indexed).
   ///   - pageSize: The number of items per page.
   func getPage(page: Int, pageSize: Int) -> AnyPublisher<[Model], Error>
+
+  /// Monitor all entities.
+  /// - Returns: A publisher that emits the list of entities and the type of change.
+  func monitorAll() -> AnyPublisher<([Model], DataChange), Error>
+
+  /// Monitor entity by ID.
+  /// - Parameter id: The ID of the entity to monitor.
+  /// - Returns: A publisher that emits the entity (or nil) and the type of change.
+  func monitorById(_ id: String) -> AnyPublisher<([Model], DataChange), Error>
 }
 
 // MARK: - BaseRepository Implementation
@@ -211,6 +220,20 @@ where Model.ManagedObjectType: ManagedEntity {
     return
       persistentStore
       .fetch(request) { Model(managedObject: $0) }
+      .eraseToAnyPublisher()
+  }
+
+  // MARK: - Monitoring
+
+  open func monitorAll() -> AnyPublisher<([Model], DataChange), Error> {
+    persistentStore
+      .monitor(defaultFetchRequest()) { Model(managedObject: $0) }
+      .eraseToAnyPublisher()
+  }
+
+  open func monitorById(_ id: String) -> AnyPublisher<([Model], DataChange), Error> {
+    persistentStore
+      .monitor(fetchRequestById(id)) { Model(managedObject: $0) }
       .eraseToAnyPublisher()
   }
 }

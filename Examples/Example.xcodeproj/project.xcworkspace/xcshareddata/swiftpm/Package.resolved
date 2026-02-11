@@ -1,15 +1,6 @@
 {
-  "originHash" : "e6b11c4fb5e72e1d43b2c6956a97d749a5f9b272b00d4428aee9149d528d4085",
+  "originHash" : "94dcc0fb4883d35aa293d32b426ed61ae0a8aeab0080a36a995305e5a440f89d",
   "pins" : [
-    {
-      "identity" : "coredatakit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/nts-sixblack/CoreDataKit",
-      "state" : {
-        "revision" : "2e6b25517d86d1aefbd5ce016a3c80e4e741263d",
-        "version" : "1.0.0"
-      }
-    },
     {
       "identity" : "swiftinjected",
       "kind" : "remoteSourceControl",

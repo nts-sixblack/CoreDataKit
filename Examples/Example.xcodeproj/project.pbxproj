@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A73B8E712F3C3AB500D61B0E /* CoreDataKit in Frameworks */ = {isa = PBXBuildFile; productRef = A73B8E702F3C3AB500D61B0E /* CoreDataKit */; };
 		A785CF242F3578FC00D71B5E /* CoreDataKit in Frameworks */ = {isa = PBXBuildFile; productRef = A785CF232F3578FC00D71B5E /* CoreDataKit */; };
-		A785CF272F357AC800D71B5E /* CoreDataKit in Frameworks */ = {isa = PBXBuildFile; productRef = A785CF262F357AC800D71B5E /* CoreDataKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,7 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A785CF272F357AC800D71B5E /* CoreDataKit in Frameworks */,
+				A73B8E712F3C3AB500D61B0E /* CoreDataKit in Frameworks */,
 				A785CF242F3578FC00D71B5E /* CoreDataKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -73,7 +73,7 @@
 			name = Example;
 			packageProductDependencies = (
 				A785CF232F3578FC00D71B5E /* CoreDataKit */,
-				A785CF262F357AC800D71B5E /* CoreDataKit */,
+				A73B8E702F3C3AB500D61B0E /* CoreDataKit */,
 			);
 			productName = Example;
 			productReference = A785CEAB2F3577CB00D71B5E /* Example.app */;
@@ -104,7 +104,7 @@
 			mainGroup = A785CEA22F3577CB00D71B5E;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A785CF252F357AC800D71B5E /* XCRemoteSwiftPackageReference "CoreDataKit" */,
+				A73B8E6F2F3C3AB500D61B0E /* XCLocalSwiftPackageReference "../../CoreDataKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A785CEAC2F3577CB00D71B5E /* Products */;
@@ -345,25 +345,20 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		A785CF252F357AC800D71B5E /* XCRemoteSwiftPackageReference "CoreDataKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nts-sixblack/CoreDataKit";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		A73B8E6F2F3C3AB500D61B0E /* XCLocalSwiftPackageReference "../../CoreDataKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../CoreDataKit;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A785CF232F3578FC00D71B5E /* CoreDataKit */ = {
+		A73B8E702F3C3AB500D61B0E /* CoreDataKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CoreDataKit;
 		};
-		A785CF262F357AC800D71B5E /* CoreDataKit */ = {
+		A785CF232F3578FC00D71B5E /* CoreDataKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A785CF252F357AC800D71B5E /* XCRemoteSwiftPackageReference "CoreDataKit" */;
 			productName = CoreDataKit;
 		};
 /* End XCSwiftPackageProductDependency section */

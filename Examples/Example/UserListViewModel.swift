@@ -24,17 +24,18 @@ final class UserListViewModel: ObservableObject {
     isLoading = true
     errorMessage = nil
 
-    database.userRepository.getAll()
+    database.userRepository.monitorAll()
       .receive(on: DispatchQueue.main)
       .sink { [weak self] completion in
-        self?.isLoading = false
         if case .failure(let error) = completion {
+          self?.isLoading = false
           self?.errorMessage = "Load error: \(error.localizedDescription)"
           print("❌ Load users error: \(error)")
         }
-      } receiveValue: { [weak self] fetchedUsers in
-        print("✅ Loaded \(fetchedUsers.count) users")
+      } receiveValue: { [weak self] fetchedUsers, change in
+        print("✅ Loaded \(fetchedUsers.count) users (change: \(change))")
         self?.users = fetchedUsers
+        self?.isLoading = false
       }
       .store(in: &cancellables)
   }
@@ -52,9 +53,8 @@ final class UserListViewModel: ObservableObject {
           self?.errorMessage = "Save error: \(error.localizedDescription)"
           print("❌ Save user error: \(error)")
         }
-      } receiveValue: { [weak self] savedUser in
+      } receiveValue: { savedUser in
         print("✅ Saved user: \(savedUser.name)")
-        self?.users.insert(savedUser, at: 0)
       }
       .store(in: &cancellables)
   }
@@ -69,9 +69,8 @@ final class UserListViewModel: ObservableObject {
             self?.errorMessage = "Delete error: \(error.localizedDescription)"
             print("❌ Delete user error: \(error)")
           }
-        } receiveValue: { [weak self] in
+        } receiveValue: { _ in
           print("✅ Deleted user at index \(index)")
-          self?.users.remove(at: index)
         }
         .store(in: &cancellables)
     }
@@ -93,11 +92,8 @@ final class UserListViewModel: ObservableObject {
           self?.errorMessage = "Update error: \(error.localizedDescription)"
           print("❌ Update user error: \(error)")
         }
-      } receiveValue: { [weak self] savedUser in
+      } receiveValue: { savedUser in
         print("✅ Updated user: \(savedUser.name)")
-        if let index = self?.users.firstIndex(where: { $0.id == savedUser.id }) {
-          self?.users[index] = savedUser
-        }
       }
       .store(in: &cancellables)
   }
