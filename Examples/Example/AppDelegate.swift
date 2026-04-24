@@ -12,17 +12,17 @@ import UIKit
 
 @MainActor
 final class AppDelegate: UIResponder, UIApplicationDelegate {
-    
+
     let dependencies = Dependencies {
         Dependency { DatabaseService.createDefault() }
     }
-    
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         dependencies.build()
-        
+
         return true
     }
 }

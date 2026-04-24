@@ -6,10 +6,10 @@ import PackageDescription
 let package = Package(
   name: "CoreDataKit",
   platforms: [
-    .iOS(.v15),
+    .iOS(.v16),
     .macOS(.v12),
     .tvOS(.v15),
-    .watchOS(.v8),
+    .watchOS(.v8)
   ],
   products: [
     .library(
@@ -29,6 +29,6 @@ let package = Package(
     .testTarget(
       name: "CoreDataKitTests",
       dependencies: ["CoreDataKit"]
-    ),
+    )
   ]
 )

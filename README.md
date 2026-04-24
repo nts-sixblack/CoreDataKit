@@ -1,9 +1,9 @@
 # CoreDataKit
 
-A lightweight, protocol-based Swift library for managing CoreData persistence with Combine support.
+A lightweight, protocol-based Swift library for managing CoreData persistence with Combine support, reactive monitoring, and memory-aware batch writes.
 
 [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
-[![Platforms](https://img.shields.io/badge/Platforms-iOS%2015+%20|%20macOS%2012+%20|%20tvOS%2015+%20|%20watchOS%208+-blue.svg)](https://developer.apple.com)
+[![Platforms](https://img.shields.io/badge/Platforms-iOS%2016+%20|%20macOS%2012+%20|%20tvOS%2015+%20|%20watchOS%208+-blue.svg)](https://developer.apple.com)
 [![SPM Compatible](https://img.shields.io/badge/SPM-Compatible-brightgreen.svg)](https://swift.org/package-manager/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -16,6 +16,8 @@ A lightweight, protocol-based Swift library for managing CoreData persistence wi
 - 🧩 **Dependency Injection** - SwiftInjected integration
 - 🔐 **Thread-safe** - Background updates, main thread fetches
 - 🛡️ **Type-safe** - Generic mapping protocols
+- 🚀 **Batch Writes** - Chunked inserts and upserts with configurable batch options
+- 👀 **Reactive Monitoring** - Observe fetch request changes through Combine publishers
 
 ## Installation
 
@@ -25,7 +27,7 @@ Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.1.0")
+    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.2.0")
 ]
 ```
 
@@ -63,7 +65,7 @@ import CoreDataKit
 
 struct User: CoreDataMappable, IdentifiableCoreDataMappable {
     typealias ManagedObjectType = UserMO
-    
+
     let id: String
     let name: String
     let email: String
@@ -175,10 +177,13 @@ final class DatabaseService {
 ```swift
 import SwiftUI
 import CoreDataKit
+import Observation
 
-final class UserListViewModel: ObservableObject {
-    @Published var users: [User] = []
-    @Published var isLoading = false
+@MainActor
+@Observable
+final class UserListViewModel {
+    var users: [User] = []
+    var isLoading = false
     
     private let database: DatabaseService
     private let cancelBag = CancelBag()
@@ -190,7 +195,6 @@ final class UserListViewModel: ObservableObject {
     func loadUsers() {
         isLoading = true
         database.userRepository.getAll()
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.isLoading = false
             } receiveValue: { [weak self] users in
@@ -202,7 +206,6 @@ final class UserListViewModel: ObservableObject {
     func addUser(name: String, email: String) {
         let user = User(name: name, email: email)
         database.userRepository.store(user)
-            .receive(on: DispatchQueue.main)
             .sink { _ in } receiveValue: { [weak self] savedUser in
                 self?.users.insert(savedUser, at: 0)
             }
@@ -240,16 +243,18 @@ struct MyApp: App {
 
 ```swift
 import SwiftInjected
+import Observation
 
-final class UserListViewModel: ObservableObject {
+@MainActor
+@Observable
+final class UserListViewModel {
     @Injected var database: DatabaseService
     
-    @Published var users: [User] = []
+    var users: [User] = []
     private let cancelBag = CancelBag()
     
     func loadUsers() {
         database.userRepository.getAll()
-            .receive(on: DispatchQueue.main)
             .sink { _ in } receiveValue: { [weak self] users in
                 self?.users = users
             }
@@ -257,6 +262,14 @@ final class UserListViewModel: ObservableObject {
     }
 }
 ```
+
+## What's New in 1.2.0
+
+- Added `BatchWriteOptions` for configuring write batch size and background-context reset behavior.
+- Added `PersistentStore.batchUpdate(options:_:)` for large insert and upsert workflows.
+- Added `NSManagedObjectContext.fetchObjectDictionary(_:keyedBy:values:batchSize:)` to prefetch managed objects by key in batches.
+- Updated `BaseRepository.store(_ items:)` to store arrays in chunks and reset the writer context between chunks to reduce memory pressure.
+- Added batch-write tests that cover 10,000-object insert and upsert flows.
 
 ## API Reference
 
@@ -279,8 +292,40 @@ protocol PersistentStore {
     func count(_ fetchRequest: NSFetchRequest<some Any>) -> AnyPublisher<Int, Error>
     func fetch<T, V>(_ fetchRequest: NSFetchRequest<T>, map: @escaping (T) throws -> V?) -> AnyPublisher<[V], Error>
     func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error>
+    func batchUpdate<Result>(options: BatchWriteOptions, _ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error>
+    func monitor<T, V>(_ fetchRequest: NSFetchRequest<T>, map: @escaping (T) throws -> V?) -> AnyPublisher<([V], DataChange), Error>
 }
 ```
+
+### Batch Writes
+
+Use `batchUpdate(options:_:)` when you need explicit control over large write transactions. The operation runs on a background context, saves pending changes, and can reset the context after completion.
+
+```swift
+let options = BatchWriteOptions(batchSize: 1_000)
+
+persistentStore.batchUpdate(options: options) { context in
+    let emails = users.map(\.email)
+    var objectsByEmail: [String: UserMO] = try context.fetchObjectDictionary(
+        UserMO.self,
+        keyedBy: "email",
+        values: emails,
+        batchSize: options.batchSize
+    )
+
+    for user in users {
+        guard let object = objectsByEmail[user.email] ?? UserMO.insertNew(in: context) else {
+            continue
+        }
+        object.id = UUID(uuidString: user.id)
+        object.name = user.name
+        object.email = user.email
+        objectsByEmail[user.email] = object
+    }
+}
+```
+
+`BaseRepository.store(_ items:)` uses the same batch-write path by default, processing arrays in chunks of 500 and resetting the writer context between chunks.
 
 ### ManagedEntity Protocol
 
@@ -307,6 +352,8 @@ protocol CoreDataMappable {
 ### BaseRepository
 
 ```swift
+import Observation
+
 // Inherit for common CRUD operations
 class UserRepository: BaseRepository<User> {
     // Override for custom fetch requests
@@ -324,7 +371,9 @@ class UserRepository: BaseRepository<User> {
     // - monitorById(_:) -> AnyPublisher<([Model], DataChange), Error>
 }
 
-class UserListViewModel: ObservableObject {
+@MainActor
+@Observable
+final class UserListViewModel {
     func monitorUsers() {
         userRepository.monitorAll()
             .sink { _ in } receiveValue: { users, change in
@@ -357,6 +406,13 @@ NSPredicate.or([...])       // Compound OR
 // NSSortDescriptor helpers
 NSSortDescriptor.ascending("key")
 NSSortDescriptor.descending("key")
+
+// NSManagedObjectContext batch fetch helper
+let objectsByEmail: [String: UserMO] = try context.fetchObjectDictionary(
+    UserMO.self,
+    keyedBy: "email",
+    values: emails
+)
 ```
 
 ## Migration Guide
@@ -385,11 +441,12 @@ userRepository.getAll()
 
 - **Fetches**: Performed on main thread context (read-only)
 - **Updates**: Performed on background context, results delivered on main thread
+- **Batch updates**: Performed on background context with configurable chunk sizes and context reset behavior
 - **Auto-merging**: View context automatically merges changes from parent
 
 ## Requirements
 
-- iOS 15.0+ / macOS 12.0+ / tvOS 15.0+ / watchOS 8.0+
+- iOS 16.0+ / macOS 12.0+ / tvOS 15.0+ / watchOS 8.0+
 - Swift 5.9+
 - Xcode 15.0+
 

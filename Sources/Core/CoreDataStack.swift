@@ -176,33 +176,14 @@ public struct CoreDataStack: PersistentStore {
   public func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<
     Result, Error
   > {
-    let update = Future<Result, Error> { [weak bgQueue, weak container] promise in
-      bgQueue?.async {
-        guard let context = container?.newBackgroundContext() else {
-          promise(.failure(CoreDataError.contextUnavailable))
-          return
-        }
-        context.configureAsUpdateContext()
-        context.performAndWait {
-          do {
-            let result = try operation(context)
-            if context.hasChanges {
-              try context.save()
-            }
-            context.reset()
-            promise(.success(result))
-          } catch {
-            context.reset()
-            promise(.failure(error))
-          }
-        }
-      }
-    }
-    return
-      onStoreIsReady
-      .flatMap { update }
-      .receive(on: DispatchQueue.main)
-      .eraseToAnyPublisher()
+    performUpdate(options: BatchWriteOptions(), operation)
+  }
+
+  public func batchUpdate<Result>(
+    options: BatchWriteOptions = BatchWriteOptions(),
+    _ operation: @escaping DBOperation<Result>
+  ) -> AnyPublisher<Result, Error> {
+    performUpdate(options: options, operation)
   }
 
   public func monitor<T, V>(
@@ -223,6 +204,43 @@ public struct CoreDataStack: PersistentStore {
   }
 
   // MARK: - Private
+
+  private func performUpdate<Result>(
+    options: BatchWriteOptions,
+    _ operation: @escaping DBOperation<Result>
+  ) -> AnyPublisher<Result, Error> {
+    let update = Future<Result, Error> { [weak bgQueue, weak container] promise in
+      bgQueue?.async {
+        guard let context = container?.newBackgroundContext() else {
+          promise(.failure(CoreDataError.contextUnavailable))
+          return
+        }
+        context.configureAsUpdateContext()
+        context.performAndWait {
+          do {
+            let result = try operation(context)
+            if context.hasChanges {
+              try context.save()
+            }
+            if options.resetsContextAfterSave {
+              context.reset()
+            }
+            promise(.success(result))
+          } catch {
+            if options.resetsContextAfterSave {
+              context.reset()
+            }
+            promise(.failure(error))
+          }
+        }
+      }
+    }
+    return
+      onStoreIsReady
+      .flatMap { update }
+      .receive(on: DispatchQueue.main)
+      .eraseToAnyPublisher()
+  }
 
   private var onStoreIsReady: AnyPublisher<Void, Error> {
     isStoreLoaded

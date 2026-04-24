@@ -15,6 +15,8 @@ import Foundation
 import SwiftInjected
 import SwiftUI
 
+// swiftlint:disable orphaned_doc_comment
+
 // MARK: - Example 1: Define Your Managed Object
 
 /// First, create your CoreData model (.xcdatamodeld) in Xcode with entities.
@@ -319,3 +321,5 @@ import SwiftUI
 ///     }
 /// }
 /// ```
+
+// swiftlint:enable orphaned_doc_comment

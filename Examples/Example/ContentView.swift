@@ -11,15 +11,15 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = UserListViewModel()
-    
+
     @State private var newUserName: String = ""
     @State private var newUserAge: String = ""
-    
+
     // Edit states
     @State private var editingUser: User?
     @State private var editUserName: String = ""
     @State private var editUserAge: String = ""
-    
+
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
@@ -27,7 +27,7 @@ struct ContentView: View {
                 Text("Users count: \(viewModel.users.count)")
                     .font(.caption)
                     .foregroundColor(.orange)
-                
+
                 // Error message
                 if let error = viewModel.errorMessage {
                     Text(error)
@@ -35,16 +35,16 @@ struct ContentView: View {
                         .font(.caption)
                         .padding(.horizontal)
                 }
-                
+
                 // Add User Section
                 VStack(spacing: 12) {
                     TextField("Name", text: $newUserName)
                         .textFieldStyle(.roundedBorder)
-                    
+
                     TextField("Age", text: $newUserAge)
                         .textFieldStyle(.roundedBorder)
                         .keyboardType(.numberPad)
-                    
+
                     Button {
                         addUser()
                     } label: {
@@ -61,9 +61,9 @@ struct ContentView: View {
                     .disabled(newUserName.isEmpty || newUserAge.isEmpty)
                 }
                 .padding(.horizontal)
-                
+
                 Divider()
-                
+
                 // User List Section
                 if viewModel.users.isEmpty {
                     VStack(spacing: 8) {
@@ -90,7 +90,7 @@ struct ContentView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                
+
                                 // Edit button
                                 Button {
                                     editingUser = user
@@ -142,9 +142,9 @@ struct ContentView: View {
             viewModel.loadUsers()
         }
     }
-    
+
     // MARK: - Actions
-    
+
     private func addUser() {
         guard let age = Int(newUserAge) else { return }
         viewModel.addUser(name: newUserName, age: age)
@@ -159,16 +159,16 @@ struct EditUserSheet: View {
     let user: User
     @Binding var editUserName: String
     @Binding var editUserAge: String
-    
+
     var onSave: (String, String) -> Void
     var onCancel: () -> Void
-    
+
     var body: some View {
         NavigationView {
             Form {
                 Section(header: Text("User Information")) {
                     TextField("Name", text: $editUserName)
-                    
+
                     TextField("Age", text: $editUserAge)
                         .keyboardType(.numberPad)
                 }
@@ -181,7 +181,7 @@ struct EditUserSheet: View {
                         onCancel()
                     }
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         onSave(editUserName, editUserAge)

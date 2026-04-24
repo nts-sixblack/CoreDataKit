@@ -47,6 +47,7 @@ class MonitorTests: XCTestCase {
     super.tearDown()
   }
 
+  // swiftlint:disable:next cyclomatic_complexity function_body_length
   func testMonitor() {
     let expectation = XCTestExpectation(description: "Monitor updates")
 

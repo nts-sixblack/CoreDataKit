@@ -122,10 +122,10 @@ where Model.ManagedObjectType: ManagedEntity {
   open func store(_ item: Model) -> AnyPublisher<Model, Error> {
     persistentStore
       .update { context in
-        guard let mo = item.store(in: context) else {
+        guard let managedObject = item.store(in: context) else {
           throw CoreDataError.mappingFailed("Failed to store \(Model.self)")
         }
-        guard let saved = Model(managedObject: mo) else {
+        guard let saved = Model(managedObject: managedObject) else {
           throw CoreDataError.mappingFailed("Failed to map stored \(Model.self)")
         }
         return saved
@@ -133,36 +133,22 @@ where Model.ManagedObjectType: ManagedEntity {
   }
 
   open func store(_ items: [Model]) -> AnyPublisher<Void, Error> {
-    persistentStore
-      .update { [weak self] context in
-        guard self != nil else { return }
+    let options = BatchWriteOptions(batchSize: 500)
 
-        // Batch size for each processing chunk
-        let batchSize = 500
-        let chunks = items.chunked(into: batchSize)
-
-        for chunk in chunks {
-          // Use AutoreleasePool to release RAM immediately after each loop
-          autoreleasepool {
-            // 1. Pre-fetch for current CHUNK only (for IdentifiableCoreDataMappable items)
-            if let identifiableItems = chunk as? [any IdentifiableCoreDataMappable] {
-              let ids = identifiableItems.map { String(describing: $0.id) }
-              let request = Model.ManagedObjectType.newFetchRequest()
-              request.predicate = NSPredicate(format: "id IN %@", ids)
-              request.returnsObjectsAsFaults = false
-              _ = try? context.fetch(request)
-            }
-
-            // 2. Map and store data
+    return persistentStore
+      .batchUpdate(options: options) { context in
+        for chunk in items.chunked(into: options.batchSize) {
+          try autoreleasepool {
             for item in chunk {
-              _ = item.store(in: context)
+              guard item.store(in: context) != nil else {
+                throw CoreDataError.mappingFailed("Failed to store \(Model.self)")
+              }
             }
           }
 
-          // 3. Save and reset context after each chunk to fully release RAM
           if context.hasChanges {
-            try? context.save()
-            context.reset()  // IMPORTANT: Clear all objects in context
+            try context.save()
+            context.reset()
           }
         }
       }
@@ -183,8 +169,8 @@ where Model.ManagedObjectType: ManagedEntity {
       .update { [weak self] context in
         guard let self = self else { return }
         let request = self.fetchRequestById(idString)
-        if let mo = try context.fetch(request).first {
-          context.delete(mo)
+        if let managedObject = try context.fetch(request).first {
+          context.delete(managedObject)
         }
       }
   }

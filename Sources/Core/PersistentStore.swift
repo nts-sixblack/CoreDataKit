@@ -9,6 +9,25 @@ import Combine
 import CoreData
 import Foundation
 
+// MARK: - Batch Write Options
+
+/// Options for batch write transactions.
+public struct BatchWriteOptions: Sendable {
+  /// Preferred chunk size for callers that need to split large input or key lists.
+  public let batchSize: Int
+
+  /// Whether the writer context should be reset after the transaction completes.
+  public let resetsContextAfterSave: Bool
+
+  public init(
+    batchSize: Int = 500,
+    resetsContextAfterSave: Bool = true
+  ) {
+    self.batchSize = max(1, batchSize)
+    self.resetsContextAfterSave = resetsContextAfterSave
+  }
+}
+
 // MARK: - PersistentStore Protocol
 
 /// Protocol defining the interface for CoreData persistence operations.
@@ -37,6 +56,16 @@ public protocol PersistentStore {
   /// - Returns: A publisher that emits the operation result or an error.
   func update<Result>(_ operation: @escaping DBOperation<Result>) -> AnyPublisher<Result, Error>
 
+  /// Perform a batch write transaction on the database.
+  /// - Parameters:
+  ///   - options: Write options shared by the transaction.
+  ///   - operation: A closure that performs the update on a background context.
+  /// - Returns: A publisher that emits the operation result or an error.
+  func batchUpdate<Result>(
+    options: BatchWriteOptions,
+    _ operation: @escaping DBOperation<Result>
+  ) -> AnyPublisher<Result, Error>
+
   /// Monitor changes to a fetch request.
   /// - Parameters:
   ///   - fetchRequest: The fetch request to monitor.
@@ -51,6 +80,14 @@ public protocol PersistentStore {
 // MARK: - PersistentStore Extension for Convenience Methods
 
 extension PersistentStore {
+  /// Default batch write implementation for custom stores.
+  public func batchUpdate<Result>(
+    options _: BatchWriteOptions = BatchWriteOptions(),
+    _ operation: @escaping DBOperation<Result>
+  ) -> AnyPublisher<Result, Error> {
+    update(operation)
+  }
+
   /// Fetch all entities of a given type.
   /// - Parameters:
   ///   - fetchRequest: The fetch request to execute.

@@ -61,6 +61,41 @@ extension NSManagedObjectContext {
     mergePolicy = NSOverwriteMergePolicy
     undoManager = nil
   }
+
+  /// Fetch managed objects once per key batch and return them keyed by an attribute.
+  public func fetchObjectDictionary<Object, Key, Values>(
+    _ type: Object.Type,
+    keyedBy keyPath: String,
+    values: Values,
+    batchSize: Int = BatchWriteOptions().batchSize
+  ) throws -> [Key: Object]
+  where
+    Object: NSManagedObject & ManagedEntity,
+    Key: Hashable,
+    Values: Sequence,
+    Values.Element == Key {
+    let uniqueValues = Array(Set(values))
+    guard uniqueValues.isEmpty == false else { return [:] }
+
+    var objectsByKey: [Key: Object] = [:]
+    objectsByKey.reserveCapacity(uniqueValues.count)
+
+    for startIndex in stride(from: 0, to: uniqueValues.count, by: max(1, batchSize)) {
+      let endIndex = Swift.min(startIndex + max(1, batchSize), uniqueValues.count)
+      let keyBatch = Array(uniqueValues[startIndex..<endIndex])
+      let predicateValues = keyBatch.map { $0 as Any } as NSArray
+      let request = type.newFetchRequest()
+      request.predicate = NSPredicate(format: "%K IN %@", keyPath, predicateValues)
+      request.returnsObjectsAsFaults = false
+
+      for object in try fetch(request) {
+        guard let key = object.value(forKey: keyPath) as? Key else { continue }
+        objectsByKey[key] = object
+      }
+    }
+
+    return objectsByKey
+  }
 }
 
 // MARK: - NSSet Extension
