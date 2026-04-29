@@ -18,6 +18,7 @@ A lightweight, protocol-based Swift library for managing CoreData persistence wi
 - 🛡️ **Type-safe** - Generic mapping protocols
 - 🚀 **Batch Writes** - Chunked inserts and upserts with configurable batch options
 - 👀 **Reactive Monitoring** - Observe fetch request changes through Combine publishers
+- ☁️ **iCloud Sync** - Optional Core Data + CloudKit mirroring through `NSPersistentCloudKitContainer`
 
 ## Installation
 
@@ -27,7 +28,7 @@ Add the following to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.2.0")
+    .package(url: "https://github.com/nts-sixblack/CoreDataKit.git", from: "1.3.0")
 ]
 ```
 
@@ -165,12 +166,18 @@ final class DatabaseService {
         let config = CoreDataConfiguration(
             modelName: "MyDataModel",
             databaseFileName: "database.sqlite",
-            managedObjectModel: model
+            managedObjectModel: model,
+            syncsWithICloud: true,
+            iCloudContainerIdentifier: "iCloud.com.example.app"
         )
         return DatabaseService(configuration: config)
     }
 }
 ```
+
+For iCloud sync, the app target must enable the iCloud/CloudKit capability with a matching
+container. To receive remote changes automatically on device, also enable Background Modes with
+Remote notifications.
 
 ### 6. Use in Your App
 
@@ -263,13 +270,12 @@ final class UserListViewModel {
 }
 ```
 
-## What's New in 1.2.0
+## What's New in 1.3.0
 
-- Added `BatchWriteOptions` for configuring write batch size and background-context reset behavior.
-- Added `PersistentStore.batchUpdate(options:_:)` for large insert and upsert workflows.
-- Added `NSManagedObjectContext.fetchObjectDictionary(_:keyedBy:values:batchSize:)` to prefetch managed objects by key in batches.
-- Updated `BaseRepository.store(_ items:)` to store arrays in chunks and reset the writer context between chunks to reduce memory pressure.
-- Added batch-write tests that cover 10,000-object insert and upsert flows.
+- Added optional Core Data + CloudKit mirroring with `syncsWithICloud`.
+- Added `iCloudContainerIdentifier` for apps that need to target a specific CloudKit container.
+- Configured CloudKit-backed stores with persistent history tracking and remote change notifications.
+- Added tests for default local storage and CloudKit-backed container configuration.
 
 ## API Reference
 
@@ -281,9 +287,16 @@ let config = CoreDataConfiguration(
     databaseFileName: "database.sqlite",    // Default
     directory: .documentDirectory,          // Default
     domainMask: .userDomainMask,           // Default
-    managedObjectModel: model               // Required for SPM
+    managedObjectModel: model,              // Required for SPM
+    syncsWithICloud: false,                 // Default
+    iCloudContainerIdentifier: nil          // Optional CloudKit container ID
 )
 ```
+
+Enable CloudKit mirroring by setting `syncsWithICloud` to `true`. If you provide
+`iCloudContainerIdentifier`, CoreDataKit assigns that container to the store description. If it is
+`nil`, `NSPersistentCloudKitContainer` uses the default iCloud container from the app target's
+entitlements.
 
 ### PersistentStore Protocol
 

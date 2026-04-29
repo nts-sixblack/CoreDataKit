@@ -19,55 +19,6 @@ public enum DataChange {
   case update
 }
 
-// MARK: - CoreDataConfiguration
-
-/// Configuration for setting up CoreDataStack.
-public struct CoreDataConfiguration {
-  /// The name of the CoreData model file (without .xcdatamodeld extension).
-  public let modelName: String
-
-  /// The name of the SQLite database file.
-  public let databaseFileName: String
-
-  /// The directory where the database file is stored.
-  public let directory: FileManager.SearchPathDirectory
-
-  /// The domain mask for the directory.
-  public let domainMask: FileManager.SearchPathDomainMask
-
-  /// Optional managed object model. If nil, will attempt to load from bundle.
-  public let managedObjectModel: NSManagedObjectModel?
-
-  /// Creates a new CoreData configuration.
-  /// - Parameters:
-  ///   - modelName: The name of the CoreData model file.
-  ///   - databaseFileName: The name of the SQLite database file. Defaults to "database.sqlite".
-  ///   - directory: The directory for database storage. Defaults to .documentDirectory.
-  ///   - domainMask: The domain mask. Defaults to .userDomainMask.
-  ///   - managedObjectModel: Optional managed object model. Required for SPM usage.
-  public init(
-    modelName: String,
-    databaseFileName: String = "database.sqlite",
-    directory: FileManager.SearchPathDirectory = .documentDirectory,
-    domainMask: FileManager.SearchPathDomainMask = .userDomainMask,
-    managedObjectModel: NSManagedObjectModel? = nil
-  ) {
-    self.modelName = modelName
-    self.databaseFileName = databaseFileName
-    self.directory = directory
-    self.domainMask = domainMask
-    self.managedObjectModel = managedObjectModel
-  }
-
-  /// Returns the URL for the database file.
-  public var databaseURL: URL? {
-    FileManager.default
-      .urls(for: directory, in: domainMask)
-      .first?
-      .appendingPathComponent(databaseFileName)
-  }
-}
-
 // MARK: - CoreDataStack
 
 /// Provides thread-safe operations for fetching and updating data.
@@ -79,17 +30,7 @@ public struct CoreDataStack: PersistentStore {
   /// Creates a new CoreDataStack with the specified configuration.
   /// - Parameter configuration: The CoreData configuration.
   public init(configuration: CoreDataConfiguration) {
-    if let model = configuration.managedObjectModel {
-      container = NSPersistentContainer(name: configuration.modelName, managedObjectModel: model)
-    } else {
-      container = NSPersistentContainer(name: configuration.modelName)
-    }
-
-    if let url = configuration.databaseURL {
-      let store = NSPersistentStoreDescription(url: url)
-      container.persistentStoreDescriptions = [store]
-    }
-
+    container = Self.makeContainer(configuration: configuration)
     bgQueue.async { [weak isStoreLoaded, weak container] in
       container?.loadPersistentStores { _, error in
         DispatchQueue.main.async {
@@ -201,6 +142,54 @@ public struct CoreDataStack: PersistentStore {
           .eraseToAnyPublisher()
       }
       .eraseToAnyPublisher()
+  }
+
+  // MARK: - Container Factory
+
+  static func makeContainer(configuration: CoreDataConfiguration) -> NSPersistentContainer {
+    let container: NSPersistentContainer
+
+    if configuration.syncsWithICloud {
+      if let model = configuration.managedObjectModel {
+        container = NSPersistentCloudKitContainer(
+          name: configuration.modelName,
+          managedObjectModel: model
+        )
+      } else {
+        container = NSPersistentCloudKitContainer(name: configuration.modelName)
+      }
+    } else if let model = configuration.managedObjectModel {
+      container = NSPersistentContainer(name: configuration.modelName, managedObjectModel: model)
+    } else {
+      container = NSPersistentContainer(name: configuration.modelName)
+    }
+
+    if let url = configuration.databaseURL {
+      container.persistentStoreDescriptions = [
+        makeStoreDescription(url: url, configuration: configuration)
+      ]
+    }
+
+    return container
+  }
+
+  private static func makeStoreDescription(
+    url: URL,
+    configuration: CoreDataConfiguration
+  ) -> NSPersistentStoreDescription {
+    let store = NSPersistentStoreDescription(url: url)
+
+    guard configuration.syncsWithICloud else { return store }
+
+    if let containerIdentifier = configuration.iCloudContainerIdentifier {
+      store.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+        containerIdentifier: containerIdentifier
+      )
+    }
+
+    store.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+    store.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+    return store
   }
 
   // MARK: - Private

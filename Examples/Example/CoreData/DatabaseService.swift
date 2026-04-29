@@ -34,6 +34,9 @@ final class DatabaseService {
             fatalError("Failed to load CoreData model 'database.momd'")
         }
 
+        // To enable iCloud sync in a real app target, add the iCloud/CloudKit
+        // capability, enable Background Modes > Remote notifications, then pass
+        // syncsWithICloud and iCloudContainerIdentifier below.
         let config = CoreDataConfiguration(
             modelName: "database",
             databaseFileName: "database.sqlite",

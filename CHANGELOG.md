@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 - 2026-04-29
+
+- Added optional Core Data + CloudKit mirroring through `CoreDataConfiguration.syncsWithICloud`.
+- Added `CoreDataConfiguration.iCloudContainerIdentifier` for apps that need to target a specific CloudKit container.
+- Updated `CoreDataStack` to create an `NSPersistentCloudKitContainer` when iCloud sync is enabled.
+- Enabled persistent history tracking and remote change notifications for CloudKit-backed stores.
+- Documented app target requirements for iCloud/CloudKit capability and Background Modes remote notifications.
+- Added tests for default local storage and CloudKit-backed container configuration.
+
 ## 1.2.0 - 2026-04-24
 
 - Added `BatchWriteOptions` for configurable batch size and writer-context reset behavior.
